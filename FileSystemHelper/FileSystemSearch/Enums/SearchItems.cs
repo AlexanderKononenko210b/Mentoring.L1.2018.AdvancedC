@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace FileSystemSearch.Enums
+﻿namespace FileSystemSearch.Enums
 {
     /// <summary>
     /// Represets a new model <see cref="SearchItems"/> enum.

@@ -13,10 +13,7 @@ namespace FileSystemSearch.Test
     [TestFixture]
     public class ValidatorTest
     {
-        /// <summary>
-        /// Test directory path.
-        /// </summary>
-        private string _directoryTestPath;
+        private string _rootPath;
 
         /// <summary>
         /// Initialize fields.
@@ -24,7 +21,8 @@ namespace FileSystemSearch.Test
         [SetUp]
         public void Initialize()
         {
-            _directoryTestPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ConfigurationManager.AppSettings["testPathDirectory"]);
+            var nameDirectory = ConfigurationManager.AppSettings["nameDirectory"];
+            _rootPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, nameDirectory);
         }
         
         /// <summary>
@@ -34,10 +32,12 @@ namespace FileSystemSearch.Test
         public void Exists_Path_DirectoryPathExist()
         {
             // arrange
+            Directory.CreateDirectory(_rootPath);
             var validator = new Validator(path => path.Contains("Debug"));
 
             //act
-            var result = validator.Exists(_directoryTestPath);
+            var result = validator.Exists(_rootPath);
+            Directory.Delete(_rootPath, true);
 
             //assert
             Assert.AreEqual(result, SearchItems.Directory);
@@ -51,7 +51,7 @@ namespace FileSystemSearch.Test
         {
             // arrange
             var validator = new Validator(path => path.Contains("Debug"));
-            var pathNotValid = Path.Combine(_directoryTestPath, "NotValid");
+            var pathNotValid = Path.Combine(_rootPath, "NotValid");
 
             //act
             var result = validator.Exists(pathNotValid);
@@ -67,10 +67,12 @@ namespace FileSystemSearch.Test
         public void IsFiltered_Path_DirectoryPathExist()
         {
             // arrange
+            Directory.CreateDirectory(_rootPath);
             var validator = new Validator(path => path.Contains("Debug"));
 
             //act
-            var result = validator.IsFiltered(_directoryTestPath);
+            var result = validator.IsFiltered(_rootPath);
+            Directory.Delete(_rootPath, true);
 
             //assert
             Assert.IsTrue(result);
@@ -86,7 +88,7 @@ namespace FileSystemSearch.Test
             var validator = new Validator(path => path.Contains("_"));
 
             //act
-            var result = validator.IsFiltered(_directoryTestPath);
+            var result = validator.IsFiltered(_rootPath);
 
             //assert
             Assert.IsFalse(result);

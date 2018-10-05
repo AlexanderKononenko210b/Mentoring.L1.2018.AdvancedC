@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using FileSystemSearch.Enums;
-using FileSystemSearch.EventArguments;
 using FileSystemSearch.Interfaces;
+using FileSystemSearch.Models;
 
 namespace FileSystemSearch
 {
@@ -104,9 +104,9 @@ namespace FileSystemSearch
         public event EventHandler<EventArgs> Finish;
 
         /// <summary>
-        /// The directory or file founded event.
+        /// The directory or file found event.
         /// </summary>
-        public event EventHandler<FoundedItemEventArgs> FoundedItem;
+        public event EventHandler<FoundItemEventArgs> FoundItem;
 
         /// <summary>
         /// The directory or file filtered event.
@@ -116,7 +116,7 @@ namespace FileSystemSearch
         /// <summary>
         /// Invoke start search event.
         /// </summary>
-        private void OnStart()
+        private void StartRaised()
         {
             this.Start?.Invoke(this, EventArgs.Empty);
 
@@ -126,7 +126,7 @@ namespace FileSystemSearch
         /// <summary>
         /// Invoke finish search event.
         /// </summary>
-        private void OnFinish()
+        private void FinishRaised()
         {
             this.Finish?.Invoke(this, EventArgs.Empty);
 
@@ -134,13 +134,13 @@ namespace FileSystemSearch
         }
 
         /// <summary>
-        /// Invoke founded search event.
+        /// Invoke found search event.
         /// </summary>
-        private void OnFoundedItem(FoundedItemEventArgs args)
+        private void FoundItemRaised(FoundItemEventArgs args)
         {
-            Console.WriteLine($"Founded {args.FoundedPath}");
+            Console.WriteLine($"Founded {args.FoundPath}");
 
-            this.FoundedItem?.Invoke(this, args);
+            this.FoundItem?.Invoke(this, args);
 
             if (args.CancelRequested)
             {
@@ -153,7 +153,7 @@ namespace FileSystemSearch
         /// <summary>
         /// Invoke filtered search event.
         /// </summary>
-        private void OnFilteredItem(FilteredItemEventArgs args)
+        private void FilteredItemRaised(FilteredItemEventArgs args)
         {
             Console.WriteLine($"Filtered {args.FilteredPath}");
 
@@ -184,16 +184,11 @@ namespace FileSystemSearch
         /// <param name="rootPath">The root path.</param>
         public void Search(string rootPath)
         {
-            this.OnStart();
-
-            if (rootPath == null)
-            {
-                throw new NullReferenceException($"{nameof(rootPath)}");
-            }
+            this.StartRaised();
 
             if (string.IsNullOrWhiteSpace(rootPath))
             {
-                throw new ArgumentOutOfRangeException($"{nameof(rootPath)}");
+                throw new ArgumentException($"Argument {nameof(rootPath)} does not valid.");
             }
 
             var rootPathValidate = _validator.Exists(rootPath);
@@ -216,7 +211,7 @@ namespace FileSystemSearch
                 }
             }
 
-            this.OnFinish();
+            this.FinishRaised();
         }
 
         /// <summary>
@@ -227,13 +222,13 @@ namespace FileSystemSearch
         {
             if (_cancelOperation) return;
 
-            this.OnFoundedItem(new FoundedItemEventArgs(rootPath, SearchItems.Directory));
+            this.FoundItemRaised(new FoundItemEventArgs(rootPath, SearchItems.Directory));
 
             if (_validator.IsFiltered(rootPath))
             {
                 var filteredArgs = new FilteredItemEventArgs(rootPath, SearchItems.Directory);
 
-                this.OnFilteredItem(filteredArgs);
+                this.FilteredItemRaised(filteredArgs);
 
                 if (_cancelOperation) return;
 
@@ -250,7 +245,7 @@ namespace FileSystemSearch
                 if (_cancelOperation) return;
             }
 
-            var directories = Directory.GetDirectories(rootPath, "*.*", SearchOption.AllDirectories);
+            var directories = Directory.GetDirectories(rootPath, "*", SearchOption.AllDirectories);
 
             if (directories.Any())
             {
@@ -269,7 +264,7 @@ namespace FileSystemSearch
         {
             if (_cancelOperation) return;
 
-            this.OnFoundedItem(new FoundedItemEventArgs(rootPath, SearchItems.File));
+            this.FoundItemRaised(new FoundItemEventArgs(rootPath, SearchItems.File));
 
             if (_cancelOperation) return;
 
@@ -277,7 +272,7 @@ namespace FileSystemSearch
             {
                 var filteredArgs = new FilteredItemEventArgs(rootPath, SearchItems.File);
 
-                this.OnFilteredItem(filteredArgs);
+                this.FilteredItemRaised(filteredArgs);
 
                 if (_cancelOperation || _excludeItem)
                 {

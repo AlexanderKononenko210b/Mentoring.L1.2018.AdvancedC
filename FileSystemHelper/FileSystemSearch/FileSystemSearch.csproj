@@ -42,15 +42,14 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Enums\SearchItems.cs" />
-    <Compile Include="EventArguments\FilteredItemEventArgs.cs" />
-    <Compile Include="EventArguments\FoundedItemEventArgs.cs" />
     <Compile Include="FileSystemVisitor.cs" />
     <Compile Include="Interfaces\ISaveManager.cs" />
     <Compile Include="Interfaces\IValidator.cs" />
+    <Compile Include="Models\FilteredItemEventArgs.cs" />
+    <Compile Include="Models\FoundItemEventArgs.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\SaveManager.cs" />
     <Compile Include="Services\Validator.cs" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
