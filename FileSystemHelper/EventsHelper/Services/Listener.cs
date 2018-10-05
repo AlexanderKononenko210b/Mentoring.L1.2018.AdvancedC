@@ -12,7 +12,7 @@ namespace EventsHelper.Services
     /// </summary>
     public class Listener
     {
-        private readonly int _countForCansel;
+        private readonly int _countForCancel;
         private readonly int _countForExclude;
 
         private readonly List<SearchInfo> _eventList = new List<SearchInfo>();
@@ -23,16 +23,16 @@ namespace EventsHelper.Services
         /// Initialize a new instance of the <see cref="Listener"/> class.
         /// </summary>
         /// <param name="visitor">The <see cref="FileSystemVisitor"/> instance.</param>
-        /// <param name="countForCansel">The count filtered items for cansel operation.</param>
+        /// <param name="countForCancel">The count filtered items for Cancel operation.</param>
         /// <param name="countForExclude">The count filtered items for exclude directories and files from saving.</param>
-        public Listener(FileSystemVisitor visitor, int countForCansel, int countForExclude)
+        public Listener(FileSystemVisitor visitor, int countForCancel, int countForExclude)
         {
             visitor.Start += StartHandler;
             visitor.Finish += FinishHandler;
             visitor.FoundItem += FoundHandler;
             visitor.FilteredItem += FilteredHandler;
 
-            _countForCansel = countForCansel;
+            _countForCancel = countForCancel;
             _countForExclude = countForExclude;
         }
 
@@ -96,8 +96,8 @@ namespace EventsHelper.Services
         /// <param name="eventArgs">The event args.</param>
         private void FoundHandler(object sender, FoundItemEventArgs eventArgs)
         {
-            //condition for cansel operation
-            if (_filteredEvents < _countForCansel)
+            //condition for Cancel operation
+            if (_filteredEvents < _countForCancel)
             {
                 var searchInfo = new SearchInfo
                 {
