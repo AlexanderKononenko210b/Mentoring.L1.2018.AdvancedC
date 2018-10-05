@@ -15,10 +15,11 @@ namespace FileSystemSearch.Test
     {
         private int _numberOfDirectories;
         private int _numberOfFiles;
-        private int _countItemsForCansel;
+        private int _countItemsForCancel;
         private int _countItemsForExclude;
         private string _nameDirectory;
         private string _rootPath;
+        private FileSystemVisitor _fileSystemVisitor;
 
 
         /// <summary>
@@ -27,28 +28,29 @@ namespace FileSystemSearch.Test
         [SetUp]
         public void Initialize()
         {
-            if(!Int32.TryParse(ConfigurationManager.AppSettings["numberOfDirectories"], out _numberOfDirectories))
+            if(!int.TryParse(ConfigurationManager.AppSettings["numberOfDirectories"], out _numberOfDirectories))
             {
                 throw new ArgumentException($"Incorrect setting value {ConfigurationManager.AppSettings["numberOfDirectories"]}");
             }
 
-            if (!Int32.TryParse(ConfigurationManager.AppSettings["numberOfFiles"], out _numberOfFiles))
+            if (!int.TryParse(ConfigurationManager.AppSettings["numberOfFiles"], out _numberOfFiles))
             {
                 throw new ArgumentException($"Incorrect setting value {ConfigurationManager.AppSettings["numberOfFiles"]}");
             }
 
-            if (!Int32.TryParse(ConfigurationManager.AppSettings["countEventsForCansel"], out _countItemsForCansel))
+            if (!int.TryParse(ConfigurationManager.AppSettings["countEventsForCancel"], out _countItemsForCancel))
             {
-                throw new ArgumentException($"Incorrect setting value {ConfigurationManager.AppSettings["countEventForCansel"]}");
+                throw new ArgumentException($"Incorrect setting value {ConfigurationManager.AppSettings["countEventForCancel"]}");
             }
 
-            if (!Int32.TryParse(ConfigurationManager.AppSettings["countEventsForExclude"], out _countItemsForExclude))
+            if (!int.TryParse(ConfigurationManager.AppSettings["countEventsForExclude"], out _countItemsForExclude))
             {
                 throw new ArgumentException($"Incorrect setting value {ConfigurationManager.AppSettings["countEventForExclude"]}");
             }
 
             _nameDirectory = ConfigurationManager.AppSettings["nameDirectory"];
             _rootPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, _nameDirectory);
+            _fileSystemVisitor = new FileSystemVisitor(new Validator(path => path.Contains("Debug")), new SaveManager());
         }
 
         /// <summary>
@@ -58,35 +60,33 @@ namespace FileSystemSearch.Test
         public void Search_RootPath_AllFilesAndDirectoriesFoundAndSave()
         {
             // arrange
-            var fileSystemVisitor = new FileSystemVisitor(new Validator(path => path.Contains("Debug")), new SaveManager());
             var expectedItemsForSave = EnvironmentBuilder.Create(_numberOfDirectories, _numberOfFiles);
-            var listener = new Listener(fileSystemVisitor, expectedItemsForSave, expectedItemsForSave);
-            
+            var listener = new Listener(_fileSystemVisitor, expectedItemsForSave, expectedItemsForSave);
+
             //act
-            fileSystemVisitor.Search(_rootPath);
+            _fileSystemVisitor.Search(_rootPath);
             EnvironmentBuilder.Clear(_rootPath);
 
             //assert
-            Assert.AreEqual(expectedItemsForSave, fileSystemVisitor.Count);
+            Assert.AreEqual(expectedItemsForSave, _fileSystemVisitor.Count);
         }
 
         /// <summary>
-        /// Cansel search.
+        /// Cancel search.
         /// </summary>
         [Test]
-        public void Search_RootPath_CanselAfterSaveFirstItem()
+        public void Search_RootPath_CancelAfterSaveFirstItem()
         {
             // arrange
-            var fileSystemVisitor = new FileSystemVisitor(new Validator(path => path.Contains("Debug")), new SaveManager());
             var expectedItemsForSave = EnvironmentBuilder.Create(_numberOfDirectories, _numberOfFiles);
-            var listener = new Listener(fileSystemVisitor, _countItemsForCansel, expectedItemsForSave);
+            var listener = new Listener(_fileSystemVisitor, _countItemsForCancel, expectedItemsForSave);
 
             //act
-            fileSystemVisitor.Search(_rootPath);
+            _fileSystemVisitor.Search(_rootPath);
             EnvironmentBuilder.Clear(_rootPath);
 
             //assert
-            Assert.AreEqual(_countItemsForCansel, fileSystemVisitor.Count);
+            Assert.AreEqual(_countItemsForCancel, _fileSystemVisitor.Count);
         }
 
         /// <summary>
@@ -96,16 +96,15 @@ namespace FileSystemSearch.Test
         public void Search_RootPath_ExcludeFileFromSaving()
         {
             // arrange
-            var fileSystemVisitor = new FileSystemVisitor(new Validator(path => path.Contains("Debug")), new SaveManager());
             var expectedItemsForSave = EnvironmentBuilder.Create(_numberOfDirectories, _numberOfFiles);
-            var listener = new Listener(fileSystemVisitor, expectedItemsForSave, _countItemsForExclude);
+            var listener = new Listener(_fileSystemVisitor, expectedItemsForSave, _countItemsForExclude);
 
             //act
-            fileSystemVisitor.Search(_rootPath);
+            _fileSystemVisitor.Search(_rootPath);
             EnvironmentBuilder.Clear(_rootPath);
 
             //assert
-            Assert.AreEqual(_countItemsForExclude, fileSystemVisitor.Count);
+            Assert.AreEqual(_countItemsForExclude, _fileSystemVisitor.Count);
         }
 
         /// <summary>
@@ -117,10 +116,8 @@ namespace FileSystemSearch.Test
             // arrange
             var incorrectPath = Path.Combine(_rootPath, "notValidPath");
 
-            var fileSystemVisitor = new FileSystemVisitor(new Validator(path => path.Contains("Debug")), new SaveManager());
-
             //assert
-            Assert.Throws<FileNotFoundException>(() => fileSystemVisitor.Search(incorrectPath));
+            Assert.Throws<FileNotFoundException>(() => _fileSystemVisitor.Search(incorrectPath));
         }
 
         /// <summary>
@@ -129,11 +126,8 @@ namespace FileSystemSearch.Test
         [Test]
         public void Search_RootPathIsNull_Expected_ArgumentException()
         {
-            // arrange
-            var fileSystemVisitor = new FileSystemVisitor(new Validator(path => path.Contains("Debug")), new SaveManager());
-
             //assert
-            Assert.Throws<ArgumentException>(() => fileSystemVisitor.Search(null));
+            Assert.Throws<ArgumentException>(() => _fileSystemVisitor.Search(null));
         }
 
         /// <summary>
@@ -142,11 +136,8 @@ namespace FileSystemSearch.Test
         [Test]
         public void Search_RootPathIsWhiteSpace_Expected_ArgumentException()
         {
-            // arrange
-            var fileSystemVisitor = new FileSystemVisitor(new Validator(path => path.Contains("Debug")), new SaveManager());
-
             //assert
-            Assert.Throws<ArgumentException>(() => fileSystemVisitor.Search(" "));
+            Assert.Throws<ArgumentException>(() => _fileSystemVisitor.Search(" "));
         }
 
         /// <summary>
@@ -155,11 +146,8 @@ namespace FileSystemSearch.Test
         [Test]
         public void Search_RootPathIsEmpty_Expected_ArgumentException()
         {
-            // arrange
-            var fileSystemVisitor = new FileSystemVisitor(new Validator(path => path.Contains("Debug")), new SaveManager());
-
             //assert
-            Assert.Throws<ArgumentException>(() => fileSystemVisitor.Search(""));
+            Assert.Throws<ArgumentException>(() => _fileSystemVisitor.Search(""));
         }
     }
 }
