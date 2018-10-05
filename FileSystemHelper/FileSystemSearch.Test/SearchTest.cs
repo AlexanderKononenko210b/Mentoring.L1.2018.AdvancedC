@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Configuration;
 using System.IO;
-using FileSystemSearch.Enums;
-using FileSystemSearch.Interfaces;
+using EventsHelper.Services;
 using FileSystemSearch.Services;
-using FileSystemSearch.Test.Helpers;
-using Moq;
 using NUnit.Framework;
 
 namespace FileSystemSearch.Test
@@ -16,9 +13,13 @@ namespace FileSystemSearch.Test
     [TestFixture]
     public class SearchTest
     {
-        private Mock<IValidator> _mockValidator;
-        private string _directoryTestPath;
-        private string _fileTestPath;
+        private int _numberOfDirectories;
+        private int _numberOfFiles;
+        private int _countItemsForCansel;
+        private int _countItemsForExclude;
+        private string _nameDirectory;
+        private string _rootPath;
+
 
         /// <summary>
         /// Initialize fields.
@@ -26,117 +27,66 @@ namespace FileSystemSearch.Test
         [SetUp]
         public void Initialize()
         {
-            _mockValidator = new Mock<IValidator>();
-            _directoryTestPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ConfigurationManager.AppSettings["testPathDirectory"]);
-            _fileTestPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ConfigurationManager.AppSettings["testPathFile"]);
+            if(!Int32.TryParse(ConfigurationManager.AppSettings["numberOfDirectories"], out _numberOfDirectories))
+            {
+                throw new ArgumentException($"Incorrect setting value {ConfigurationManager.AppSettings["numberOfDirectories"]}");
+            }
+
+            if (!Int32.TryParse(ConfigurationManager.AppSettings["numberOfFiles"], out _numberOfFiles))
+            {
+                throw new ArgumentException($"Incorrect setting value {ConfigurationManager.AppSettings["numberOfFiles"]}");
+            }
+
+            if (!Int32.TryParse(ConfigurationManager.AppSettings["countEventsForCansel"], out _countItemsForCansel))
+            {
+                throw new ArgumentException($"Incorrect setting value {ConfigurationManager.AppSettings["countEventForCansel"]}");
+            }
+
+            if (!Int32.TryParse(ConfigurationManager.AppSettings["countEventsForExclude"], out _countItemsForExclude))
+            {
+                throw new ArgumentException($"Incorrect setting value {ConfigurationManager.AppSettings["countEventForExclude"]}");
+            }
+
+            _nameDirectory = ConfigurationManager.AppSettings["nameDirectory"];
+            _rootPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, _nameDirectory);
         }
 
         /// <summary>
-        /// Search file is exist and filtered.
+        /// Searched files and directories are exist, filtered and saved.
         /// </summary>
         [Test]
-        public void Search_RootPath_FileFoundedAndSave()
+        public void Search_RootPath_AllFilesAndDirectoriesFoundAndSave()
         {
             // arrange
-            _mockValidator.Setup(mock => mock.Exists(It.IsAny<string>()))
-                .Returns(() => SearchItems.File);
-
-            _mockValidator.Setup(mock => mock.IsFiltered(It.IsAny<string>()))
-                .Returns(() => true);
-
-            var fileSystemVisitor = new FileSystemVisitor(_mockValidator.Object, new SaveManager());
-            var listener = new Listener(fileSystemVisitor);
-
+            var fileSystemVisitor = new FileSystemVisitor(new Validator(path => path.Contains("Debug")), new SaveManager());
+            var expectedItemsForSave = EnvironmentBuilder.Create(_numberOfDirectories, _numberOfFiles);
+            var listener = new Listener(fileSystemVisitor, expectedItemsForSave, expectedItemsForSave);
+            
             //act
-            fileSystemVisitor.Search(_fileTestPath);
+            fileSystemVisitor.Search(_rootPath);
+            EnvironmentBuilder.Clear(_rootPath);
 
             //assert
-            Assert.AreEqual(1, fileSystemVisitor.Count);
-            Assert.AreEqual(_fileTestPath, fileSystemVisitor[0]);
-
-            Assert.AreEqual(4, listener.Count);
-            Assert.AreEqual(EventTypes.Start, listener[0].EventType);
-            Assert.AreEqual(EventTypes.Founded, listener[1].EventType);
-            Assert.AreEqual(SearchItems.File, listener[1].ItemType);
-            Assert.AreEqual(_fileTestPath, listener[1].Path);
-            Assert.AreEqual(EventTypes.Filtered, listener[2].EventType);
-            Assert.AreEqual(SearchItems.File, listener[2].ItemType);
-            Assert.AreEqual(_fileTestPath, listener[2].Path);
-            Assert.AreEqual(EventTypes.Finish, listener[3].EventType);
+            Assert.AreEqual(expectedItemsForSave, fileSystemVisitor.Count);
         }
 
         /// <summary>
-        /// Search directory is exist and filtered.
-        /// </summary>
-        [Test]
-        public void Search_RootPath_DirectoryFoundedAndSave()
-        {
-            // arrange
-            _mockValidator.Setup(mock => mock.Exists(It.IsAny<string>()))
-                .Returns(() => SearchItems.Directory);
-
-            _mockValidator.Setup(mock => mock.IsFiltered(It.IsAny<string>()))
-                .Returns(() => true);
-
-            var fileSystemVisitor = new FileSystemVisitor(_mockValidator.Object, new SaveManager());
-            var listener = new Listener(fileSystemVisitor);
-
-            //act
-            fileSystemVisitor.Search(_directoryTestPath);
-
-            //assert
-            Assert.AreEqual(2, fileSystemVisitor.Count);
-            Assert.AreEqual(_directoryTestPath, fileSystemVisitor[0]);
-            Assert.AreEqual(_fileTestPath, fileSystemVisitor[1]);
-
-            Assert.AreEqual(6, listener.Count);
-            Assert.AreEqual(EventTypes.Start, listener[0].EventType);
-            Assert.AreEqual(EventTypes.Founded, listener[1].EventType);
-            Assert.AreEqual(SearchItems.Directory, listener[1].ItemType);
-            Assert.AreEqual(_directoryTestPath, listener[1].Path);
-            Assert.AreEqual(EventTypes.Filtered, listener[2].EventType);
-            Assert.AreEqual(SearchItems.Directory, listener[2].ItemType);
-            Assert.AreEqual(_directoryTestPath, listener[2].Path);
-            Assert.AreEqual(EventTypes.Founded, listener[3].EventType);
-            Assert.AreEqual(SearchItems.File, listener[3].ItemType);
-            Assert.AreEqual(_fileTestPath, listener[3].Path);
-            Assert.AreEqual(EventTypes.Filtered, listener[4].EventType);
-            Assert.AreEqual(SearchItems.File, listener[4].ItemType);
-            Assert.AreEqual(_fileTestPath, listener[4].Path);
-            Assert.AreEqual(EventTypes.Finish, listener[5].EventType);
-        }
-
-        /// <summary>
-        /// Cansel search after founded, filtered success and save first item.
+        /// Cansel search.
         /// </summary>
         [Test]
         public void Search_RootPath_CanselAfterSaveFirstItem()
         {
             // arrange
-            _mockValidator.SetupSequence(mock => mock.Exists(It.IsAny<string>()))
-                .Returns(() => SearchItems.Directory)
-                .Returns(() => SearchItems.File);
-
-            _mockValidator.SetupSequence(mock => mock.IsFiltered(It.IsAny<string>()))
-                .Returns(() => true)
-                .Returns(() => true);
-
-            var fileSystemVisitor = new FileSystemVisitor(_mockValidator.Object, new SaveManager());
-            var listener = new Listener(fileSystemVisitor);
-            listener._countForCansel = 2;
+            var fileSystemVisitor = new FileSystemVisitor(new Validator(path => path.Contains("Debug")), new SaveManager());
+            var expectedItemsForSave = EnvironmentBuilder.Create(_numberOfDirectories, _numberOfFiles);
+            var listener = new Listener(fileSystemVisitor, _countItemsForCansel, expectedItemsForSave);
 
             //act
-            fileSystemVisitor.Search(_directoryTestPath);
+            fileSystemVisitor.Search(_rootPath);
+            EnvironmentBuilder.Clear(_rootPath);
 
             //assert
-            Assert.AreEqual(1, fileSystemVisitor.Count);
-            Assert.AreEqual(_directoryTestPath, fileSystemVisitor[0]);
-
-            Assert.AreEqual(4, listener.Count);
-            Assert.AreEqual(EventTypes.Start, listener[0].EventType);
-            Assert.AreEqual(EventTypes.Founded, listener[1].EventType);
-            Assert.AreEqual(EventTypes.Filtered, listener[2].EventType);
-            Assert.AreEqual(EventTypes.Finish, listener[3].EventType);
+            Assert.AreEqual(_countItemsForCansel, fileSystemVisitor.Count);
         }
 
         /// <summary>
@@ -146,32 +96,16 @@ namespace FileSystemSearch.Test
         public void Search_RootPath_ExcludeFileFromSaving()
         {
             // arrange
-            _mockValidator.SetupSequence(mock => mock.Exists(It.IsAny<string>()))
-                .Returns(() => SearchItems.Directory)
-                .Returns(() => SearchItems.File);
-
-            _mockValidator.SetupSequence(mock => mock.IsFiltered(It.IsAny<string>()))
-                .Returns(() => true)
-                .Returns(() => true);
-
-            var fileSystemVisitor = new FileSystemVisitor(_mockValidator.Object, new SaveManager());
-            var listener = new Listener(fileSystemVisitor);
-            listener._countForExclude = 3;
+            var fileSystemVisitor = new FileSystemVisitor(new Validator(path => path.Contains("Debug")), new SaveManager());
+            var expectedItemsForSave = EnvironmentBuilder.Create(_numberOfDirectories, _numberOfFiles);
+            var listener = new Listener(fileSystemVisitor, expectedItemsForSave, _countItemsForExclude);
 
             //act
-            fileSystemVisitor.Search(_directoryTestPath);
+            fileSystemVisitor.Search(_rootPath);
+            EnvironmentBuilder.Clear(_rootPath);
 
             //assert
-            Assert.AreEqual(1, fileSystemVisitor.Count);
-            Assert.AreEqual(_directoryTestPath, fileSystemVisitor[0]);
-
-            Assert.AreEqual(6, listener.Count);
-            Assert.AreEqual(EventTypes.Start, listener[0].EventType);
-            Assert.AreEqual(EventTypes.Founded, listener[1].EventType);
-            Assert.AreEqual(EventTypes.Filtered, listener[2].EventType);
-            Assert.AreEqual(EventTypes.Founded, listener[3].EventType);
-            Assert.AreEqual(EventTypes.Filtered, listener[4].EventType);
-            Assert.AreEqual(EventTypes.Finish, listener[5].EventType);
+            Assert.AreEqual(_countItemsForExclude, fileSystemVisitor.Count);
         }
 
         /// <summary>
@@ -181,52 +115,51 @@ namespace FileSystemSearch.Test
         public void Search_RootPath_RootPathIsNotValid_Expected_FileNotFoundException()
         {
             // arrange
-            _mockValidator.Setup(mock => mock.Exists(It.IsAny<string>()))
-                .Returns(() => SearchItems.Unknown);
+            var incorrectPath = Path.Combine(_rootPath, "notValidPath");
 
-            var fileSystemVisitor = new FileSystemVisitor(_mockValidator.Object, new SaveManager());
+            var fileSystemVisitor = new FileSystemVisitor(new Validator(path => path.Contains("Debug")), new SaveManager());
 
             //assert
-            Assert.Throws<FileNotFoundException>(() => fileSystemVisitor.Search(_directoryTestPath));
+            Assert.Throws<FileNotFoundException>(() => fileSystemVisitor.Search(incorrectPath));
         }
 
         /// <summary>
-        /// Search method argument is null. Expected ArgumentOutOfRangeException.
+        /// Search method argument is null. Expected ArgumentException.
         /// </summary>
         [Test]
-        public void Search_RootPathIsNull_Expected_NullReferenceException()
+        public void Search_RootPathIsNull_Expected_ArgumentException()
         {
             // arrange
-            var fileSystemVisitor = new FileSystemVisitor(_mockValidator.Object, new SaveManager());
+            var fileSystemVisitor = new FileSystemVisitor(new Validator(path => path.Contains("Debug")), new SaveManager());
 
             //assert
-            Assert.Throws<NullReferenceException>(() => fileSystemVisitor.Search(null));
+            Assert.Throws<ArgumentException>(() => fileSystemVisitor.Search(null));
         }
 
         /// <summary>
-        /// Search method argument is whitespace. Expected ArgumentOutOfRangeException.
+        /// Search method argument is whitespace. Expected ArgumentException.
         /// </summary>
         [Test]
-        public void Search_RootPathIsWhiteSpace_Expected_ArgumentOutOfRangeException()
+        public void Search_RootPathIsWhiteSpace_Expected_ArgumentException()
         {
             // arrange
-            var fileSystemVisitor = new FileSystemVisitor(_mockValidator.Object, new SaveManager());
+            var fileSystemVisitor = new FileSystemVisitor(new Validator(path => path.Contains("Debug")), new SaveManager());
 
             //assert
-            Assert.Throws<ArgumentOutOfRangeException>(() => fileSystemVisitor.Search(" "));
+            Assert.Throws<ArgumentException>(() => fileSystemVisitor.Search(" "));
         }
 
         /// <summary>
-        /// Search method argument is empty. Expected ArgumentOutOfRangeException.
+        /// Search method argument is empty. Expected ArgumentException.
         /// </summary>
         [Test]
-        public void Search_RootPathIsEmpty_Expected_ArgumentOutOfRangeException()
+        public void Search_RootPathIsEmpty_Expected_ArgumentException()
         {
             // arrange
-            var fileSystemVisitor = new FileSystemVisitor(_mockValidator.Object, new SaveManager());
+            var fileSystemVisitor = new FileSystemVisitor(new Validator(path => path.Contains("Debug")), new SaveManager());
 
             //assert
-            Assert.Throws<ArgumentOutOfRangeException>(() => fileSystemVisitor.Search(""));
+            Assert.Throws<ArgumentException>(() => fileSystemVisitor.Search(""));
         }
     }
 }
